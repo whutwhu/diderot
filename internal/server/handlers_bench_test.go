@@ -24,13 +24,14 @@ func benchmarkHandlers(tb testing.TB, count, subscriptions int) {
 	const finalVersion = "done"
 	h := newHandler(
 		ctx,
+		AnyTypeURL,
 		NoopLimiter{},
 		NoopLimiter{},
 		new(customStatsHandler),
 		false,
 		func(resources sendBuffer) error {
 			for _, r := range resources {
-				if r.Version == finalVersion {
+				if r.Resource.Version == finalVersion {
 					finished.Done()
 				}
 			}

@@ -8,13 +8,26 @@ import (
 	"testing"
 	"time"
 
+	gocmp "github.com/google/go-cmp/cmp"
+	gocmpopts "github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/linkedin/diderot/ads"
 	"github.com/linkedin/diderot/internal/utils"
+	serverstats "github.com/linkedin/diderot/stats/server"
 	"github.com/linkedin/diderot/testutils"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
+
+const AnyTypeURL = "type.googleapis.com/google.protobuf.Any"
+
+func checkSendBuffer(t *testing.T, expected, actual sendBuffer) {
+	opts := []gocmp.Option{gocmpopts.IgnoreFields(serverstats.SentResource{}, "QueuedAt"), protocmp.Transform()}
+	if !gocmp.Equal(expected, actual, opts...) {
+		require.Equal(t, expected, actual)
+	}
+}
 
 // TestHandlerDebounce checks the following:
 //  1. That the handler does not invoke send as long as the debouncer has not allowed it to.
@@ -31,6 +44,7 @@ func TestHandlerDebounce(t *testing.T) {
 
 	h := newHandler(
 		testutils.Context(t),
+		AnyTypeURL,
 		NoopLimiter{},
 		l,
 		new(customStatsHandler),
@@ -85,23 +99,23 @@ func TestHandlerDebounce(t *testing.T) {
 
 	released.Store(true)
 	l.Release()
-	require.Equal(t,
-		sendBuffer{
-			foo: nil,
+	checkSendBuffer(t, sendBuffer{
+		foo: serverstats.SentResource{
+			Resource: nil,
+			Metadata: fooDeleteMetadata,
 		},
-		actualResources)
+	}, actualResources)
 	delete(actualResources, foo)
 
 	enterSendWg.Add(1)
 	released.Store(true)
 	l.Release()
-	require.Equal(
-		t,
-		sendBuffer{
-			bar: barR,
+	checkSendBuffer(t, sendBuffer{
+		bar: serverstats.SentResource{
+			Resource: barR,
+			Metadata: barCreateMetadata,
 		},
-		actualResources,
-	)
+	}, actualResources)
 }
 
 func TestHandlerBatching(t *testing.T) {
@@ -110,6 +124,7 @@ func TestHandlerBatching(t *testing.T) {
 	granular := NewTestHandlerLimiter()
 	h := newHandler(
 		testutils.Context(t),
+		AnyTypeURL,
 		granular,
 		NoopLimiter{},
 		new(customStatsHandler),
@@ -127,7 +142,7 @@ func TestHandlerBatching(t *testing.T) {
 	notify := func() {
 		name := strconv.Itoa(len(expectedEntries))
 		h.Notify(name, nil, ads.SubscriptionMetadata{})
-		expectedEntries[name] = nil
+		expectedEntries[name] = serverstats.SentResource{Resource: nil}
 	}
 
 	h.StartNotificationBatch(0)
@@ -139,7 +154,7 @@ func TestHandlerBatching(t *testing.T) {
 	released.Store(true)
 	h.EndNotificationBatch()
 
-	require.Equal(t, expectedEntries, <-ch)
+	checkSendBuffer(t, expectedEntries, <-ch)
 
 	released.Store(false)
 
@@ -151,12 +166,13 @@ func TestHandlerBatching(t *testing.T) {
 	// Check that EndNotificationBatch skips the granular limiter
 	h.EndNotificationBatch()
 
-	require.Equal(t, expectedEntries, <-ch)
+	checkSendBuffer(t, expectedEntries, <-ch)
 }
 
 func TestHandlerDoesNothingOnEmptyBatch(t *testing.T) {
 	h := newHandler(
 		testutils.Context(t),
+		AnyTypeURL,
 		// Make both limiters nil, if the handler interacts with them at all the test should fail
 		nil,
 		nil,
