@@ -108,3 +108,14 @@ type UnknownResourceRequested struct {
 }
 
 func (s *UnknownResourceRequested) isServerEvent() {}
+
+// IRVMatchedResource represents stats for resources that matches the `initial_resource_versions`
+// provided by the client.
+type IRVMatchedResource struct {
+	// The name of the resource
+	ResourceName string
+	// The resource itself, nil if the resource is being deleted.
+	Resource *ads.RawResource
+}
+
+func (s *IRVMatchedResource) isServerEvent() {}
