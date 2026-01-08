@@ -5,6 +5,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/linkedin/diderot/ads"
 	"github.com/linkedin/diderot/internal/utils"
 	"google.golang.org/protobuf/proto"
@@ -220,7 +221,7 @@ func (c *subscriptionManagerCore) unsubscribe(name string) {
 
 // isVHDSType checks if the given typeURL is for VHDS (Virtual Host Discovery Service).
 func isVHDSType(typeURL string) bool {
-	return typeURL == "type.googleapis.com/envoy.config.route.v3.VirtualHost"
+	return typeURL == resource.VirtualHostType
 }
 
 // cleanSubscriptionsAndEstimateSize clones the given slice and removes duplicate elements by sorting
