@@ -131,7 +131,8 @@ func (m *deltaSubscriptionManager) ProcessSubscriptions(req *ads.DeltaDiscoveryR
 
 	if !m.firstCallReceived {
 		m.firstCallReceived = true
-		if len(subscribe) == 0 {
+		// Skip wildcard subscription for VHDS resource type
+		if len(subscribe) == 0 && !isVHDSType(m.typeURL) {
 			subscribe = []string{ads.WildcardSubscription}
 		}
 	}
@@ -215,6 +216,11 @@ func (c *subscriptionManagerCore) unsubscribe(name string) {
 		unsub()
 		delete(c.subscriptions, name)
 	}
+}
+
+// isVHDSType checks if the given typeURL is for VHDS (Virtual Host Discovery Service).
+func isVHDSType(typeURL string) bool {
+	return typeURL == "type.googleapis.com/envoy.config.route.v3.VirtualHost"
 }
 
 // cleanSubscriptionsAndEstimateSize clones the given slice and removes duplicate elements by sorting
